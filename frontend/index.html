@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chiacas Kiosk & Private Counter POS e-Bill System</title>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <!-- OFFICIAL GOOGLE PAY WEB API SDK -->
+  <script src="https://pay.google.com/gp/p/js/pay.js" async onload="if(typeof onGooglePayLoaded==='function')onGooglePayLoaded()"></script>
+  <!-- Direct Inline Kiosk Start Handler (Works immediately even before external scripts load or if cached) -->
+  <script>
+    function startKioskOrder(orderType) {
+      try {
+        var overlay = document.getElementById('kiosk-welcome-overlay');
+        if (overlay) {
+          overlay.hidden = true;
+          overlay.setAttribute('hidden', '');
+          overlay.classList.add('hidden');
+          overlay.style.setProperty('display', 'none', 'important');
+        }
+        var vid = document.getElementById('kiosk-welcome-video');
+        if (vid) { try { vid.pause(); } catch(e) {} }
+
+        document.body.classList.remove('kiosk-welcome-open');
+        document.body.className = (document.body.className || '').replace(/\bkiosk-welcome-open\b/g, '').trim();
+
+        var header = document.querySelector('.app-header');
+        var main = document.querySelector('.main-content');
+        var cartBar = document.querySelector('.kiosk-cart-bar');
+        if (header) header.style.setProperty('display', 'flex', 'important');
+        if (main) main.style.setProperty('display', 'block', 'important');
+        if (cartBar) cartBar.style.setProperty('display', 'flex', 'important');
+
+        if (typeof window.state !== 'undefined' && window.state) {
+          window.state.orderType = orderType === 'Take-Out' ? 'Take-Out' : 'Dine-In';
+        }
+        var dineInControl = document.getElementById('type-dinein');
+        var takeoutControl = document.getElementById('type-takeout');
+        if (dineInControl) dineInControl.classList.toggle('active', orderType !== 'Take-Out');
+        if (takeoutControl) takeoutControl.classList.toggle('active', orderType === 'Take-Out');
+
+        try {
+          localStorage.setItem('chiacas_last_order_type', orderType === 'Take-Out' ? 'Take-Out' : 'Dine-In');
+        } catch (e) {}
+
+        if (typeof renderMenu === 'function') {
+          try { renderMenu(); } catch (e) {}
+        }
+      } catch (err) {
+        console.error('startKioskOrder error:', err);
+      }
+    }
+    window.startKioskOrder = startKioskOrder;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      var video = document.getElementById('kiosk-welcome-video');
+      if (video) {
+        video.muted = true;
+        try {
+          var p = video.play();
+          if (p && typeof p.catch === 'function') {
+            p.catch(function() {});
+          }
+        } catch (e) {}
+      }
+
+      var btn = document.getElementById('kiosk-welcome-start-btn');
+      if (btn) {
+        btn.onclick = function(e) {
+          if (e && e.stopPropagation) e.stopPropagation();
+          startKioskOrder('Dine-In');
+        };
+      }
+    });
+  </script>
+</head>
+<body class="theme-orange-white kiosk-welcome-open">
+  <!-- ADDITIVE CUSTOMER WELCOME SCREEN: Kiosk Card with Burger Animation Loop & Staggered Text -->
+  <section class="kiosk-welcome-overlay" id="kiosk-welcome-overlay" aria-label="Welcome to ChiaCas Express self-order kiosk">
+    <div class="kiosk-welcome-panel kiosk-welcome-card" id="kiosk-welcome-panel">
+      
+      <!-- 1. Brand Logo Header -->
+      <div class="kiosk-welcome-brand">
+        <img src="assets/chiacas_brand_logo.png" alt="ChiaCas Express Self-Order Kiosk" class="kiosk-welcome-brand-img">
+      </div>
+
+      <!-- 2. Eyebrow -->
+      <div class="kiosk-welcome-eyebrow">
+        WELCOME - SELF-SERVICE ORDERING
+      </div>
+
+      <!-- 3. Title -->
+      <h1 class="kiosk-welcome-title">
+        Hungry?
+        <span>Order here.</span>
+      </h1>
+
+      <!-- 4. Description -->
+      <p class="kiosk-welcome-description">
+        Your favourites are just a few taps away. Choose how you would like to enjoy your meal and start building your order.
+      </p>
+
+      <!-- 5. Burger Animation Video Clip (Looping) -->
+      <div class="kiosk-welcome-food-art">
+        <video id="kiosk-welcome-video" class="kiosk-welcome-food-video" autoplay loop muted playsinline poster="assets/big_mac.jpg">
+          <source src="assets/burger animation.mp4" type="video/mp4">
+          <source src="assets/burger%20animation.mp4" type="video/mp4">
+          <img src="assets/big_mac.jpg" alt="ChiaCas Burger" style="width:100%; height:100%; object-fit:cover;">
+        </video>
+        <div class="kiosk-welcome-food-shade"></div>
+        <div class="kiosk-welcome-food-label">
+          Made for your cravings
+          <small>Good Food. Easy Ordering.</small>
+        </div>
+      </div>
+
+      <!-- 6. Order Now Button (Below Burger Animation) -->
+      <div class="kiosk-welcome-actions">
+        <button class="kiosk-welcome-choice" id="kiosk-welcome-start-btn" type="button" onclick="startKioskOrder('Dine-In')">
+          <i class="fa-solid fa-utensils" aria-hidden="true"></i>
+          <span>Order Now</span>
+        </button>
+        <p class="kiosk-welcome-hint">
+          <i class="fa-solid fa-hand-pointer" aria-hidden="true"></i> Touch a button to get started
+        </p>
+      </div>
+
+    </div>
+  </section>
+  <!-- Top Navigation App Bar -->
+  <header class="app-header">
+    <div class="brand-logo">
+      <div class="mcd-arches">
+        <svg viewBox="0 0 100 100" class="gold-arches-svg">
+          <path d="M15 85 C 15 30, 35 30, 35 70 C 35 30, 55 30, 55 85 C 55 30, 75 30, 75 70 C 75 30, 95 30, 95 85" fill="none" stroke="#FF7900" stroke-width="14" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">Chiacas</span>
+        <span class="brand-tag">Express Self-Order Kiosk</span>
+      </div>
+    </div>
+
+    <!-- Top Right Corner: Owner POS & Owner Profile Dropdown Menu -->
+    <div class="header-right-actions">
+      <!-- Private Owner POS / Counter Mode Toggle -->
+      <button class="staff-mode-btn" id="kiosk-owner-pos-btn" onclick="openOwnerPinModal()" title="Private Owner POS & e-Bill Station">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>Counter POS</span>
+        <span class="badge-count" id="pending-orders-count">0</span>
+      </button>
+
+      <!-- Owner Profile Widget with Action Dropdown -->
+      <div class="owner-profile-container">
+        <div class="owner-profile-widget" id="counter-owner-profile-widget" onclick="toggleOwnerDropdown(event)" title="Click for Owner Options">
+          <div class="profile-avatar">
+            <i class="fa-solid fa-user-tie"></i>
+          </div>
+          <div class="profile-details">
+            <span class="profile-title">Owner Profile <i class="fa-solid fa-chevron-down" style="font-size:0.65rem; margin-left:4px; color:var(--mcd-gold);"></i></span>
+            <span class="profile-sales-amt" id="header-today-sales-badge">Total Sales: ₹0.00</span>
+          </div>
+        </div>
+
+        <!-- Dropdown Menu Options Listed One by One -->
+        <div class="owner-dropdown-menu hidden" id="owner-dropdown-menu">
+          <div class="dropdown-header">
+            <div class="dh-title">Store Owner Management</div>
+            <div class="dh-sub">Chiacas Admin Controls</div>
+          </div>
+          <button class="dropdown-item" onclick="handleOwnerDropdownAction('sales')">
+            <div class="item-icon sales-icon"><i class="fa-solid fa-chart-line"></i></div>
+            <div class="item-text">
+              <strong>1. Today's Report</strong>
+              <span>Today's & Yesterday's Revenue, GPay/Cash & Itemized Quantity</span>
+            </div>
+          </button>
+          <button class="dropdown-item" onclick="handleOwnerDropdownAction('menu')">
+            <div class="item-icon menu-icon"><i class="fa-solid fa-utensils"></i></div>
+            <div class="item-text">
+              <strong>2. Manage Menu & Prices</strong>
+              <span>Add/Edit Items, Prices, Photos & Categories</span>
+            </div>
+          </button>
+          <button class="dropdown-item" onclick="handleOwnerDropdownAction('pin')">
+            <div class="item-icon pin-icon"><i class="fa-solid fa-key"></i></div>
+            <div class="item-text">
+              <strong>3. Change Security PIN</strong>
+              <span>Update 4-Digit Private Owner Security Lock Code (Default: 1234)</span>
+            </div>
+          </button>
+          <button class="dropdown-item lock-item" onclick="handleOwnerDropdownAction('lock')">
+            <div class="item-icon lock-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
+            <div class="item-text">
+              <strong>4. Switch to Kiosk Mode</strong>
+              <span>Return to Customer Kiosk Mode</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="main-content">
+    
+    <!-- ==================== VIEW 1: CUSTOMER SELF-ORDERING KIOSK ==================== -->
+    <section id="kiosk-view" class="view-panel active">
+
+
+      <!-- Main Kiosk Grid Layout: Left Categories Sidebar + Center Menu Items Grid -->
+      <div class="kiosk-layout">
+        <!-- Left Side Category Navigation Sidebar -->
+        <div class="category-sidebar" id="kiosk-category-nav">
+          <!-- Populated dynamically by app.js renderCategoryFilterButtons() -->
+        </div>
+
+        <!-- Menu Items Display Area -->
+        <div class="menu-container">
+          <div class="menu-header-bar">
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="menu-search-input" placeholder="Search Items..." oninput="handleSearch(this.value)">
+            </div>
+          </div>
+
+          <!-- Menu Grid -->
+          <div class="menu-grid" id="menu-grid">
+            <!-- Dynamically Rendered Menu Cards -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Floating Cart Bar (Kiosk Footer) -->
+      <div class="kiosk-cart-bar" id="kiosk-cart-bar">
+        <div class="cart-summary-info" onclick="toggleCartDrawer()">
+          <div class="cart-icon-wrapper">
+            <i class="fa-solid fa-bag-shopping"></i>
+            <span class="cart-badge-count" id="cart-total-count">0</span>
+          </div>
+          <div class="cart-price-block">
+            <span class="cart-label">My Order (<span id="cart-item-types">0 items</span>)</span>
+            <span class="cart-total-val" id="cart-subtotal-display">₹0.00</span>
+          </div>
+        </div>
+        <div class="cart-actions-group">
+          <button class="view-order-btn" onclick="toggleCartDrawer()">
+            <i class="fa-solid fa-list-check"></i> View Order
+          </button>
+          <button class="checkout-btn" id="pay-now-btn" onclick="openCheckoutModal()" disabled>
+            <span>Proceed to Pay</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: PRIVATE OWNER COUNTER e-BILL & POS STATION ==================== -->
+    <section id="counter-view" class="view-panel">
+      <!-- ==================== TOP CENTER QUICK ITEM CATALOG BAR ==================== -->
+      <div class="counter-top-catalog-bar">
+        <div class="counter-catalog-header">
+          <div class="counter-catalog-title">
+            <i class="fa-solid fa-store gold-icon"></i>
+            <div>
+              <h3>Counter Quick Item Picker</h3>
+              <p>Tap items to add & increment (1x, 2x, 3x). Pay all instantly.</p>
+            </div>
+          </div>
+          
+          <div class="counter-cat-filter-pills">
+            <button class="counter-cat-pill active" onclick="filterCounterTopCatalog('all', this)">All Items</button>
+            <button class="counter-cat-pill" onclick="filterCounterTopCatalog('SANDWICH & BURGER', this)">SANDWICH & BURGER</button>
+            <button class="counter-cat-pill" onclick="filterCounterTopCatalog('SNACKS', this)">SNACKS</button>
+            <button class="counter-cat-pill" onclick="filterCounterTopCatalog('MAGGI', this)">MAGGI</button>
+            <button class="counter-cat-pill" onclick="filterCounterTopCatalog('EGG', this)">EGG</button>
+            <button class="counter-cat-pill" onclick="filterCounterTopCatalog('BREAD & ROLL', this)">BREAD & ROLL</button>
+            <button class="counter-cat-pill" onclick="filterCounterTopCatalog('MILK SHAKE & JUICE', this)">MILK SHAKE & JUICE</button>
+            <button class="counter-cat-pill" onclick="filterCounterTopCatalog('ICE CREAM', this)">ICE CREAM</button>
+          </div>
+
+          <!-- Live Total Summary Bar -->
+          <div class="counter-top-pay-summary" id="counter-top-pay-summary">
+            <div class="top-pay-info">
+              <span class="top-token-lbl" id="counter-top-token-lbl">Select/Add Item</span>
+              <strong class="top-amt-val" id="counter-top-amt-val">₹0.00</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scrollable Horizontal Row showing ALL items with image, price & instant ADD -->
+        <div class="counter-top-items-row" id="counter-top-items-row">
+          <!-- Dynamically populated by app.js -->
+        </div>
+      </div>
+
+      <div class="counter-dashboard">
+        <!-- Left: Live Order Ticket Selector Sidebar -->
+        <div class="counter-sidebar">
+          <div class="counter-panel-header">
+            <h3><i class="fa-solid fa-receipt"></i> Customer Bills</h3>
+            <button class="back-to-kiosk-btn" onclick="lockAndExitCounter()">
+              <i class="fa-solid fa-lock"></i> Lock & Exit
+            </button>
+          </div>
+
+          <div class="search-tickets-box">
+            <i class="fa-solid fa-search"></i>
+            <input type="text" id="ticket-search-input" placeholder="Search Token #..." oninput="filterTickets(this.value)">
+          </div>
+
+          <div class="order-tickets-list" id="order-tickets-list">
+            <!-- Dynamic Ticket Cards -->
+          </div>
+        </div>
+
+        <!-- Right: Active e-Bill Receipt Preview & Counter Item Addition -->
+        <div class="ebill-container">
+          <div id="no-order-selected" class="empty-ebill-state">
+            <i class="fa-solid fa-receipt empty-icon"></i>
+            <h3>No Order Selected</h3>
+            <p>Select an order ticket from the left panel or tap any item above to start billing.</p>
+          </div>
+
+          <div id="ebill-display-card" class="ebill-card hidden" style="position: relative;">
+            <button type="button" class="top-delete-bill-btn" onclick="deleteActiveBill()" title="Delete Bill">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+
+            <!-- e-Bill Header -->
+            <div class="ebill-header">
+              <div class="ebill-brand">
+                <div class="mini-arches">
+                  <svg viewBox="0 0 100 100" style="width: 32px; height: 32px;">
+                    <path d="M15 85 C 15 30, 35 30, 35 70 C 35 30, 55 30, 55 85 C 55 30, 75 30, 75 70 C 75 30, 95 30, 95 85" fill="none" stroke="#FF7900" stroke-width="16" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <h2>Chiacas Store #4081</h2>
+                  <p>1240 Chiacas Avenue, Grand Square</p>
+                </div>
+              </div>
+              <div class="ebill-badge-group">
+                <span class="ebill-type-badge" id="ebill-order-type">Dine-In</span>
+                <span class="ebill-status-pill status-paid-green" id="ebill-status-pill">PAID (GREEN)</span>
+              </div>
+            </div>
+
+            <!-- Meta Data Grid -->
+            <div class="ebill-meta-grid">
+              <div class="meta-item">
+                <span class="meta-lbl">ORDER TOKEN</span>
+                <strong class="meta-val highlight" id="ebill-token-no">#1</strong>
+              </div>
+              <div class="meta-item">
+                <span class="meta-lbl">DATE & TIME</span>
+                <strong class="meta-val" id="ebill-timestamp">--</strong>
+              </div>
+              <div class="meta-item">
+                <span class="meta-lbl">PAYMENT METHOD</span>
+                <strong class="meta-val" id="ebill-pay-method">Google Pay (GPay API)</strong>
+              </div>
+              <div class="meta-item">
+                <span class="meta-lbl">PAYMENT STATUS</span>
+                <strong class="meta-val status-green-text" id="ebill-pay-status-text">PAID & VERIFIED</strong>
+              </div>
+            </div>
+
+            <!-- Add Extra Item to Current Bill Button -->
+            <div class="counter-add-item-bar" id="counter-add-item-bar">
+              <button class="add-extra-item-btn" onclick="openAddItemToActiveBillModal()">
+                <i class="fa-solid fa-cart-plus"></i> + Add Extra Item to This Customer Bill
+              </button>
+            </div>
+
+            <!-- Itemized Table -->
+            <div class="ebill-table-wrapper">
+              <table class="ebill-items-table">
+                <thead>
+                  <tr>
+                    <th>Qty</th>
+                    <th>Item Description & Customizations</th>
+                    <th class="txt-right">Unit</th>
+                    <th class="txt-right">Total</th>
+                    <th class="txt-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="ebill-items-tbody">
+                  <!-- Dynamic Item Rows -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Calculation Breakdown -->
+            <div class="ebill-summary-box">
+              <div class="summary-line">
+                <span>Items Subtotal</span>
+                <span id="ebill-subtotal">₹0.00</span>
+              </div>
+              <div class="summary-line">
+                <span>CGST (2.5%)</span>
+                <span id="ebill-cgst">₹0.00</span>
+              </div>
+              <div class="summary-line">
+                <span>SGST (2.5%)</span>
+                <span id="ebill-sgst">₹0.00</span>
+              </div>
+              <div class="summary-line text-muted">
+                <span>Eco-Packaging Fee</span>
+                <span>₹15.00</span>
+              </div>
+              <div class="summary-line grand-total">
+                <span>Grand Total</span>
+                <strong id="ebill-grand-total">₹0.00</strong>
+              </div>
+            </div>
+
+            <!-- Digital e-Bill QR Code with Payable Amount Display -->
+            <div class="ebill-qr-section">
+              <div class="qr-box-wrapper">
+                <canvas id="ebill-qr-canvas"></canvas>
+                <div class="qr-amount-overlay" id="ebill-qr-amount-badge">₹0.00</div>
+              </div>
+              <div class="qr-info">
+                <h4><i class="fa-solid fa-qrcode"></i> Google Pay / GPay e-Bill QR</h4>
+                <p>Scan with Google Pay, PhonePe, or Camera to view and save digital e-Bill.</p>
+                <div class="qr-meta-url">gpay.chiacas.in/pay?amount=<span id="ebill-qr-amt-val">0.00</span>&token=<span id="ebill-qr-token">0000</span></div>
+              </div>
+            </div>
+
+            <!-- Counter Control Action Buttons -->
+            <div class="ebill-actions-bar">
+              <button class="action-btn upi-pay-btn" id="counter-mark-upi-btn" onclick="counterCollectPayment('gpay')">
+                <i class="fa-brands fa-google-pay" style="font-size:1.2rem;"></i> Mark Paid via UPI Scanner (Green)
+              </button>
+              <button class="action-btn cash-pay-btn" id="counter-mark-cash-btn" onclick="counterCollectPayment('cash')">
+                <i class="fa-solid fa-money-bill-wave"></i> Collect Cash & Mark Paid (Green)
+              </button>
+              <button class="action-btn print-direct-btn" onclick="manualPrintReceipt()">
+                <i class="fa-solid fa-print"></i> Print Paper Bill (On Request)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+
+
+  <!-- ==================== MODAL: ADD ITEM TO COUNTER BILL ==================== -->
+  <div class="modal-overlay" id="counter-add-item-modal">
+    <div class="modal-card counter-item-picker-card">
+      <button class="modal-close-btn" onclick="closeCounterAddItemModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <h2><i class="fa-solid fa-cart-plus" style="color:var(--mcd-gold);"></i> Select Item to Add to Customer Bill</h2>
+      <p class="subtitle">Search or select an item from the menu catalog below to append to this bill.</p>
+
+      <!-- Live Search Box for Adding Item to Active Bill -->
+      <div class="search-box" style="width: 100%; max-width: 100%; margin-bottom: 16px; background: var(--bg-dark); border-color: var(--border-gold);">
+        <i class="fa-solid fa-magnifying-glass" style="color: var(--mcd-gold);"></i>
+        <input type="text" id="counter-add-item-search-input" placeholder="Search item..." oninput="handleCounterAddItemSearch(this.value)">
+      </div>
+
+      <div class="counter-catalog-grid" id="counter-catalog-grid">
+        <!-- Dynamically Rendered Quick Add Cards for Counter Staff -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 1: ITEM ORDER POPUP ==================== -->
+  <div class="modal-overlay" id="customize-modal">
+    <div class="modal-card" style="max-width: 480px;">
+      <button class="modal-close-btn" onclick="closeCustomizeModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="customize-body">
+        <div class="item-preview-header" style="margin-bottom: 20px;">
+          <img id="custom-item-img" src="" alt="Food Preview">
+          <div class="item-preview-details">
+            <span class="preview-cat-badge hidden" id="custom-item-cat" style="display:none;"></span>
+            <h2 id="custom-item-name">Big Mac</h2>
+            <p id="custom-item-desc">Two 100% pure beef patties with Big Mac sauce...</p>
+            <div class="preview-price-row">
+              <span class="preview-price" id="custom-base-price">₹259.00</span>
+              <span class="preview-cal" id="custom-item-cal">550 Cal</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quantity & Add to Order Footer -->
+        <div class="customize-footer" style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+          <div class="qty-selector">
+            <button class="qty-btn" onclick="adjustCustomQty(-1)"><i class="fa-solid fa-minus"></i></button>
+            <span class="qty-val" id="custom-qty-val">1</span>
+            <button class="qty-btn" onclick="adjustCustomQty(1)"><i class="fa-solid fa-plus"></i></button>
+          </div>
+
+          <button class="add-to-order-btn" onclick="confirmAddToCart()">
+            <span>Add to Order</span>
+            <span class="final-item-price" id="custom-calculated-price">₹259.00</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 2: CART DRAWER ==================== -->
+  <div class="modal-overlay" id="cart-modal">
+    <div class="cart-drawer">
+      <div class="drawer-header">
+        <div class="header-title">
+          <i class="fa-solid fa-bag-shopping"></i>
+          <h2>Your Kiosk Order</h2>
+        </div>
+        <button class="modal-close-btn" onclick="toggleCartDrawer()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="cart-items-container" id="cart-drawer-items">
+        <!-- Dynamic Cart Item Rows -->
+      </div>
+
+      <div class="drawer-footer">
+        <div class="bill-breakdown">
+          <div class="breakdown-row">
+            <span>Subtotal</span>
+            <span id="drawer-subtotal">₹0.00</span>
+          </div>
+          <div class="breakdown-row">
+            <span>Estimated Tax (5% GST)</span>
+            <span id="drawer-tax">₹0.00</span>
+          </div>
+          <div class="breakdown-row grand">
+            <span>Estimated Total</span>
+            <strong id="drawer-grand-total">₹0.00</strong>
+          </div>
+        </div>
+
+        <div class="drawer-actions">
+          <button class="clear-cart-btn" onclick="clearCart()">
+            <i class="fa-solid fa-trash-can"></i> Clear
+          </button>
+          <button class="checkout-btn full" onclick="openCheckoutModal()">
+            Proceed to Checkout
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 3: CHECKOUT & GPAY / CASH PAYMENT ==================== -->
+  <div class="modal-overlay" id="checkout-modal">
+    <div class="modal-card checkout-card">
+      <button class="modal-close-btn" onclick="closeCheckoutModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <h2>Select Payment & e-Bill Option</h2>
+      <p class="subtitle">Select your payment method below. All prices in Indian Rupee (₹).</p>
+
+      <div class="checkout-step-container">
+        <!-- Payment Options Grid -->
+        <div class="payment-methods-grid">
+          <div class="pay-method-card active" onclick="selectPayMethod('gpay', this)">
+            <i class="fa-brands fa-google-pay pay-icon gpay-brand-icon"></i>
+            <h3>Google Pay (GPay API)</h3>
+            <p>Pay with GPay / UPI for Instant e-Bill Token</p>
+            <span class="pay-tag green">INSTANT GPAY</span>
+          </div>
+
+          <div class="pay-method-card" onclick="selectPayMethod('cash', this)">
+            <i class="fa-solid fa-money-bill-wave pay-icon cash-brand-icon"></i>
+            <h3>Pay Cash at Counter</h3>
+            <p>Generate Token & Pay Cash to Cashier</p>
+            <span class="pay-tag yellow">CASH TOKEN</span>
+          </div>
+
+          <div class="pay-method-card" onclick="selectPayMethod('card', this)">
+            <i class="fa-solid fa-credit-card pay-icon"></i>
+            <h3>Card Reader Kiosk</h3>
+            <p>Tap Credit/Debit Card on Terminal</p>
+            <span class="pay-tag">CARD</span>
+          </div>
+        </div>
+
+        <!-- Dynamic Payment Details Box -->
+        <div class="pay-detail-box" id="pay-detail-card">
+          <!-- Rendered dynamically by app.js -->
+        </div>
+
+        <!-- Final Pay Button -->
+        <div class="checkout-footer">
+          <div class="checkout-summary">
+            <span>Total Amount Payable</span>
+            <h2 id="checkout-payable-total">₹0.00</h2>
+          </div>
+          <button class="pay-submit-btn" id="confirm-pay-btn" onclick="processOrderPayment()">
+            <i class="fa-solid fa-check"></i>
+            <span id="pay-btn-label">Confirm Order & Pay</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 4: ORDER SUCCESS TICKET & DONE BUTTON ==================== -->
+  <div class="modal-overlay" id="success-modal">
+    <div class="modal-card success-card">
+      <div class="success-animation">
+        <div class="checkmark-circle">
+          <i class="fa-solid fa-check"></i>
+        </div>
+      </div>
+
+      <span class="ticket-status-badge green-badge" id="success-paid-pill"><i class="fa-solid fa-circle-check"></i> PAYMENT SUCCESS - PAID (GREEN)</span>
+      <h2>Order Confirmed!</h2>
+      <p id="success-sub-text">Your Order Token has been sent to the e-Bill Counter register.</p>
+
+      <div class="ticket-receipt-preview">
+        <div class="ticket-number" id="success-token-num">#CC-801</div>
+        <div class="ticket-payable-amt" id="success-payable-amt-display">Total Paid: ₹0.00</div>
+        
+        <!-- QR Code with payable amount overlay -->
+        <div class="ticket-qr-wrap" style="margin-top:12px;">
+          <div class="qr-box-wrapper">
+            <canvas id="success-qr-canvas"></canvas>
+            <div class="qr-amount-overlay" id="success-qr-amount-badge">₹0.00</div>
+          </div>
+          <small><i class="fa-brands fa-google-pay"></i> Scan for GPay Digital e-Bill Copy</small>
+        </div>
+      </div>
+
+      <!-- DONE BUTTON FOR CUSTOMER -->
+      <div class="success-actions" style="margin-top: 16px;">
+        <button class="done-finish-btn" onclick="finishOrderAndReset()">
+          <i class="fa-solid fa-circle-check"></i> DONE
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: ALL DAYS SALES & ITEM BREAKDOWN ANALYTICS ==================== -->
+  <div class="modal-overlay" id="today-sales-modal">
+    <div class="modal-card sales-modal-card">
+      <button class="modal-close-btn" onclick="closeTodaySalesModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+        <div>
+          <h2><i class="fa-solid fa-chart-line" style="color:var(--mcd-gold);"></i> Today's Sales Report</h2>
+          <p class="subtitle" id="sales-report-subtitle">Real-time revenue, payment method analytics, and itemized quantity breakdown for Today.</p>
+        </div>
+        <div class="sales-filter-toggle">
+          <button class="sales-filter-btn active" id="filter-today" onclick="setSalesFilter('today', this)">Today</button>
+          <button class="sales-filter-btn" id="filter-yesterday" onclick="setSalesFilter('yesterday', this)">Yesterday</button>
+          <button class="sales-filter-btn" id="filter-all-days" onclick="setSalesFilter('all', this)">All Days</button>
+          <button class="sales-filter-btn" id="filter-single-date" onclick="setSalesFilter('single-date', this)">Specific Date</button>
+          <button class="sales-filter-btn" id="filter-date-range" onclick="setSalesFilter('date-range', this)">Date Duration</button>
+          <button class="sales-filter-btn" id="filter-month" onclick="setSalesFilter('month', this)">By Month</button>
+        </div>
+      </div>
+
+      <!-- Dynamic Date & Month Filter Inputs Bar -->
+      <div id="sales-date-input-container" class="sales-date-input-bar hidden">
+        <!-- Single Specific Date Picker -->
+        <div id="single-date-picker-wrap" class="date-picker-group hidden">
+          <label><i class="fa-solid fa-calendar-day" style="color:var(--mcd-gold);"></i> Select Date:</label>
+          <div class="calendar-input-flex">
+            <button type="button" class="calendar-btn-left" onclick="openCalendarPicker('sales-single-date-input', event)" title="Click to open calendar">
+              <i class="fa-solid fa-calendar-days"></i>
+            </button>
+            <input type="date" id="sales-single-date-input" class="sales-date-input" onchange="onSalesDateFilterChange()">
+          </div>
+        </div>
+
+        <!-- Duration Start & End Date Picker -->
+        <div id="duration-date-picker-wrap" class="date-picker-group hidden">
+          <label><i class="fa-solid fa-calendar-days" style="color:var(--mcd-gold);"></i> Start Date:</label>
+          <div class="calendar-input-flex">
+            <button type="button" class="calendar-btn-left" onclick="openCalendarPicker('sales-start-date-input', event)" title="Click to open start date calendar">
+              <i class="fa-solid fa-calendar-days"></i>
+            </button>
+            <input type="date" id="sales-start-date-input" class="sales-date-input" onchange="onSalesDateFilterChange()">
+          </div>
+
+          <label style="margin-left: 10px;"><i class="fa-solid fa-calendar-days" style="color:var(--mcd-gold);"></i> End Date:</label>
+          <div class="calendar-input-flex">
+            <button type="button" class="calendar-btn-left" onclick="openCalendarPicker('sales-end-date-input', event)" title="Click to open end date calendar">
+              <i class="fa-solid fa-calendar-days"></i>
+            </button>
+            <input type="date" id="sales-end-date-input" class="sales-date-input" onchange="onSalesDateFilterChange()">
+          </div>
+        </div>
+
+        <!-- Month & Year Picker -->
+        <div id="month-picker-wrap" class="date-picker-group hidden">
+          <label><i class="fa-solid fa-calendar-week" style="color:var(--mcd-gold);"></i> Select Month:</label>
+          <div class="calendar-input-flex">
+            <button type="button" class="calendar-btn-left" onclick="openCalendarPicker('sales-month-input', event)" title="Click to open month calendar">
+              <i class="fa-solid fa-calendar-days"></i>
+            </button>
+            <input type="month" id="sales-month-input" class="sales-date-input" onchange="onSalesDateFilterChange()">
+          </div>
+        </div>
+      </div>
+
+      <div class="sales-summary-grid">
+        <div class="sales-stat-card green">
+          <span class="stat-lbl" id="sales-stat-lbl-revenue">TOTAL SALES (ALL DAYS)</span>
+          <strong class="stat-val" id="sales-total-revenue">₹0.00</strong>
+        </div>
+        <div class="sales-stat-card">
+          <span class="stat-lbl">TOTAL PAID BILLS</span>
+          <strong class="stat-val" id="sales-paid-count">0</strong>
+        </div>
+        <div class="sales-stat-card">
+          <span class="stat-lbl">GPAY / ONLINE SALES</span>
+          <strong class="stat-val" id="sales-gpay-total">₹0.00</strong>
+        </div>
+        <div class="sales-stat-card">
+          <span class="stat-lbl">COUNTER CASH SALES</span>
+          <strong class="stat-val" id="sales-cash-total">₹0.00</strong>
+        </div>
+      </div>
+
+      <h3 style="margin-top:12px; margin-bottom:6px; font-size:1rem; font-family:var(--font-heading); color:#ffffff;" id="sales-items-heading">
+        <i class="fa-solid fa-burger" style="color:var(--mcd-gold);"></i> Itemized Quantity Sold Breakdown (All Days)
+      </h3>
+
+      <div class="sales-table-wrapper">
+        <table class="sales-items-table">
+          <thead>
+            <tr>
+              <th>Item Description</th>
+              <th>Category & Unit Price</th>
+              <th class="txt-right">Total Quantity Sold</th>
+              <th class="txt-right">Total Revenue</th>
+            </tr>
+          </thead>
+          <tbody id="sales-items-tbody">
+            <!-- Dynamically populated by app.js -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Merchant Bank Account UPI Settings Configuration Box -->
+      <div class="merchant-upi-config-box" style="margin-top: 14px; background: var(--bg-card); border: 1px solid var(--border-gold); padding: 14px 16px; border-radius: var(--radius-md);">
+        <h3 style="font-size:0.95rem; font-family:var(--font-heading); color:#ffffff; display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <i class="fa-brands fa-google-pay" style="color:#4285F4; font-size:1.4rem;"></i>
+          Merchant Bank Account UPI Scanner Settings (Direct Bank Deposit)
+        </h3>
+        <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:12px;">
+          Enter your original bank account UPI VPA ID & Store Name. When customers scan the e-Bill QR code with Google Pay, PhonePe, or Paytm, the money is deposited directly into your bank account with the exact bill amount!
+        </p>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:12px; align-items:end;">
+          <div>
+            <label style="font-size:0.75rem; color:var(--text-secondary); font-weight:700; display:block; margin-bottom:4px;">BANK ACCOUNT UPI ID (VPA)</label>
+            <input type="text" id="merchant-upi-id-input" placeholder="e.g. yourname@okaxis, 9876543210@paytm" oninput="saveMerchantUpiSettings()" style="background:var(--bg-dark); border:1px solid var(--border-color); color:#ffffff; padding:8px 12px; border-radius:var(--radius-sm); width:100%; font-size:0.85rem;">
+          </div>
+          <div>
+            <label style="font-size:0.75rem; color:var(--text-secondary); font-weight:700; display:block; margin-bottom:4px;">STORE / MERCHANT BUSINESS NAME</label>
+            <input type="text" id="merchant-name-input" placeholder="e.g. Chiacas Store #4081" oninput="saveMerchantUpiSettings()" style="background:var(--bg-dark); border:1px solid var(--border-color); color:#ffffff; padding:8px 12px; border-radius:var(--radius-sm); width:100%; font-size:0.85rem;">
+          </div>
+          <button onclick="saveMerchantUpiSettings()" style="background:var(--mcd-gold); color:#121212; border:none; padding:9px 18px; border-radius:var(--radius-sm); font-family:var(--font-heading); font-weight:900; font-size:0.85rem; cursor:pointer;">
+            <i class="fa-solid fa-floppy-disk"></i> Save UPI Account
+          </button>
+        </div>
+        <div id="merchant-upi-save-msg" style="font-size:0.8rem; color:var(--mcd-green); font-weight:700; margin-top:8px;"></div>
+      </div>
+
+      <!-- Security PIN Configuration Box -->
+      <div class="merchant-upi-config-box" style="margin-top: 14px; background: var(--bg-card); border: 1px solid var(--border-gold); padding: 14px 16px; border-radius: var(--radius-md);">
+        <h3 style="font-size:0.95rem; font-family:var(--font-heading); color:#ffffff; display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <i class="fa-solid fa-shield-halved" style="color:var(--mcd-gold);"></i>
+          Private Owner Security PIN Lock (Default: 1234)
+        </h3>
+        <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:12px;">
+          Protect your Counter POS & Sales Reports with a 4-digit Owner PIN. You can change your PIN or reset to default 1234 anytime.
+        </p>
+
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <button onclick="openChangePinModal()" style="background:var(--mcd-gold); color:#121212; border:none; padding:9px 18px; border-radius:var(--radius-sm); font-family:var(--font-heading); font-weight:900; font-size:0.85rem; cursor:pointer;">
+            <i class="fa-solid fa-key"></i> Change Security PIN
+          </button>
+          <button onclick="resetPinToDefault()" style="background:rgba(255,255,255,0.08); color:var(--text-primary); border:1px solid var(--border-color); padding:9px 16px; border-radius:var(--radius-sm); font-family:var(--font-heading); font-weight:700; font-size:0.85rem; cursor:pointer;">
+            <i class="fa-solid fa-rotate-left"></i> Reset PIN to Default (1234)
+          </button>
+        </div>
+      </div>
+
+
+
+      <!-- Reset All Sales & Restart Bill #1 Action Bar -->
+      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <span style="font-size: 0.8rem; color: var(--text-secondary);"><i class="fa-solid fa-info-circle" style="color:var(--mcd-gold);"></i> Start a new day or clean session? Clears order list & resets sequence to <strong>Bill #1</strong>.</span>
+        <button onclick="resetSalesAndStartFromOne()" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); padding: 8px 16px; border-radius: var(--radius-sm); font-family: var(--font-heading); font-weight: 800; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-rotate-left"></i> Reset Sales & Start Bill #1
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: OWNER MENU CATALOG & PRICES MANAGER ==================== -->
+  <div class="modal-overlay" id="owner-menu-manager-modal">
+    <div class="modal-card owner-menu-modal-card">
+      <button class="modal-close-btn" onclick="closeOwnerMenuModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+        <div>
+          <h2><i class="fa-solid fa-utensils" style="color:var(--mcd-gold);"></i> Owner Menu Catalog & Price Manager</h2>
+          <p class="subtitle">Add & edit store items, set custom prices, assign categories, and manage Kiosk promo deals.</p>
+        </div>
+        <button class="add-extra-item-btn" onclick="showAddNewItemForm()" style="padding: 8px 16px;">
+          <i class="fa-solid fa-plus"></i> + Add New Item
+        </button>
+      </div>
+
+      <!-- Top Category Pills Filter Row -->
+      <div class="owner-menu-cat-bar" style="margin-bottom: 14px; background: var(--bg-dark); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="font-size: 0.78rem; font-weight: 800; color: var(--mcd-gold); text-transform: uppercase; letter-spacing: 0.5px;"><i class="fa-solid fa-layer-group"></i> FILTER BY CATEGORY:</span>
+          <div id="owner-menu-category-pills" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <!-- Populated dynamically by renderCategoryFilterButtons() -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Add / Edit Item Form Box -->
+      <div id="item-editor-form-box" class="merchant-upi-config-box hidden" style="margin-bottom: 16px; background: var(--bg-card); border: 1px solid var(--border-gold); padding: 16px; border-radius: var(--radius-md);">
+        <h3 id="item-editor-form-title" style="font-size:0.95rem; font-family:var(--font-heading); color:#ffffff; margin-bottom:10px;">
+          <i class="fa-solid fa-plus" style="color:var(--mcd-gold);"></i> Add New Menu Item
+        </h3>
+        <form onsubmit="saveMenuItemForm(event)">
+          <input type="hidden" id="edit-item-id-hidden" value="">
+          <div class="item-form-grid">
+            <div>
+              <label>ITEM NAME *</label>
+              <input type="text" id="form-item-name" placeholder="e.g. Special Chicken Wrap" required>
+            </div>
+            <div>
+              <label>CATEGORY *</label>
+              <select id="form-item-category-select" onchange="handleCategorySelectChange()" required>
+                <option value="SANDWICH & BURGER">SANDWICH & BURGER</option>
+                <option value="SNACKS">SNACKS</option>
+                <option value="MAGGI">MAGGI</option>
+                <option value="EGG">EGG</option>
+                <option value="BREAD & ROLL">BREAD & ROLL</option>
+                <option value="MILK SHAKE & JUICE">MILK SHAKE & JUICE</option>
+                <option value="ICE CREAM">ICE CREAM</option>
+                <option value="NEW_CUSTOM_CATEGORY" style="color:var(--mcd-gold); font-weight:bold;">+ Type & Create New Category...</option>
+              </select>
+              <div id="custom-category-input-wrap" class="hidden" style="margin-top:6px;">
+                <input type="text" id="form-custom-category-input" placeholder="Type new category (e.g. Pizzas, Wraps, Pastas)" style="border-color:var(--mcd-gold);">
+              </div>
+            </div>
+            <div>
+              <label>PRICE (₹) *</label>
+              <input type="number" step="0.01" id="form-item-price" placeholder="e.g. 199.00" required>
+            </div>
+            <div>
+              <label>CALORIES</label>
+              <input type="text" id="form-item-calories" placeholder="e.g. 350 Cal">
+            </div>
+            <div>
+              <label>MENU TAG</label>
+              <input type="text" id="form-item-tag" placeholder="e.g. POPULAR, VALUE, NEW, SPECIAL">
+            </div>
+            <div>
+              <label>IMAGE URL (OR UPLOAD BELOW)</label>
+              <input type="text" id="form-item-image" placeholder="https://... or drag/browse photo below" oninput="handleImageInputUrlChange(this.value)">
+            </div>
+          </div>
+
+          <!-- Drag & Drop / Device Photo Upload Box -->
+          <div style="margin-top: 12px;">
+            <label style="font-size:0.75rem; color:var(--text-secondary); font-weight:700; display:block; margin-bottom:4px;">ITEM PHOTO (DRAG & DROP OR UPLOAD FROM DEVICE)</label>
+            <div class="image-upload-zone" id="item-image-dropzone" onclick="triggerBrowsePhoto(event)">
+              <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+              <div style="font-weight: 700; font-size: 0.85rem; margin-top:4px;">
+                Drag & drop photo here or <span style="color:var(--mcd-gold); text-decoration:underline; cursor:pointer;" onclick="triggerBrowsePhoto(event)">Browse from Device</span>
+              </div>
+              <small style="color:var(--text-muted); font-size:0.75rem; display:block; margin-top:2px;">Supports JPG, PNG, WEBP, GIF</small>
+              <input type="file" id="form-item-file-input" accept="image/*" style="display:none;" onclick="event.stopPropagation()" onchange="handleFileInputChange(event)">
+            </div>
+            <div id="upload-preview-container" class="upload-preview-wrap hidden" style="margin-top:8px;">
+              <img id="upload-preview-img" src="" alt="Photo Preview" class="upload-preview-img">
+              <button type="button" class="preview-remove-btn" onclick="clearUploadedPhoto(event)" title="Remove photo"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+          <div style="margin-top: 10px;">
+            <label style="font-size:0.75rem; color:var(--text-secondary); font-weight:700; display:block; margin-bottom:4px;">DESCRIPTION</label>
+            <textarea id="form-item-desc" rows="2" placeholder="Item description & ingredients..."></textarea>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
+            <button type="button" onclick="hideItemEditorForm()" style="background:var(--bg-dark); color:var(--text-secondary); border:1px solid var(--border-color); padding:8px 16px; border-radius:var(--radius-sm); font-weight:700; cursor:pointer;">Cancel</button>
+            <button type="submit" style="background:var(--mcd-gold); color:#121212; border:none; padding:8px 20px; border-radius:var(--radius-sm); font-family:var(--font-heading); font-weight:900; cursor:pointer;">
+              <i class="fa-solid fa-floppy-disk"></i> Save Menu Item
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Current Catalog Items Table -->
+      <div style="min-height: 240px; max-height: 380px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-dark);">
+        <table class="menu-manager-table">
+          <thead>
+            <tr>
+              <th>Item Name</th>
+              <th>Category</th>
+              <th>Price (₹)</th>
+              <th>Tag</th>
+              <th class="txt-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="owner-menu-items-tbody">
+            <!-- Dynamically populated by app.js -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Multi Promo Offer Deals Manager Section -->
+      <div class="merchant-upi-config-box" style="margin-top: 24px; background: var(--bg-card); border: 1px solid var(--border-gold); padding: 18px; border-radius: var(--radius-md);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+          <div>
+            <h3 style="font-size:0.95rem; font-family:var(--font-heading); color:#ffffff; display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-bullhorn" style="color:var(--mcd-gold);"></i> Kiosk Promo Offer Deals Manager
+            </h3>
+            <p style="font-size:0.8rem; color:var(--text-secondary);">
+              Add custom promo deals, set prices, and select which offer to display on the Customer Kiosk top banner!
+            </p>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <button type="button" onclick="deactivateAllPromoOffers()" style="background:rgba(235,0,41,0.15); color:#ff5252; border:1px solid rgba(235,0,41,0.4); padding:8px 14px; border-radius:var(--radius-sm); font-family:var(--font-heading); font-weight:800; font-size:0.82rem; cursor:pointer;" title="Deactivate all promo offers and hide top banner from Kiosk">
+              <i class="fa-solid fa-power-off"></i> Turn Off All Offers
+            </button>
+            <button type="button" onclick="showAddPromoForm()" style="background:rgba(255,188,13,0.15); color:var(--mcd-gold); border:1px solid var(--border-gold); padding:8px 16px; border-radius:var(--radius-sm); font-family:var(--font-heading); font-weight:800; font-size:0.82rem; cursor:pointer;">
+              <i class="fa-solid fa-plus"></i> + Add New Promo Offer
+            </button>
+          </div>
+        </div>
+
+        <!-- Add / Edit Promo Offer Form Box -->
+        <div id="promo-editor-form-box" class="hidden" style="margin-bottom:14px; background:var(--bg-dark); border:1px solid var(--border-gold); padding:14px; border-radius:var(--radius-sm);">
+          <h4 id="promo-editor-title" style="font-size:0.85rem; color:var(--mcd-gold); margin-bottom:8px;">+ Create New Kiosk Promo Offer</h4>
+          <form onsubmit="savePromoOfferForm(event)">
+            <input type="hidden" id="edit-promo-id-hidden" value="">
+            <div class="item-form-grid">
+              <div>
+                <label>PROMO OFFER TITLE *</label>
+                <input type="text" id="promo-form-title" placeholder="e.g. Family Feast Meal Box" required>
+              </div>
+              <div>
+                <label>DEAL PRICE (₹) *</label>
+                <input type="number" step="0.01" id="promo-form-price" placeholder="e.g. 499.00" required>
+              </div>
+              <div style="grid-column: span 2;">
+                <label>PROMO DESCRIPTION *</label>
+                <input type="text" id="promo-form-desc" placeholder="e.g. 2 Big Macs, 2 Fries & 2 Drinks with Free Coupon!" required>
+              </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+              <button type="button" onclick="hidePromoEditorForm()" style="background:transparent; color:var(--text-secondary); border:1px solid var(--border-color); padding:6px 12px; border-radius:4px; font-size:0.8rem;">Cancel</button>
+              <button type="submit" style="background:var(--mcd-gold); color:#121212; border:none; padding:6px 14px; border-radius:4px; font-weight:900; font-size:0.8rem;">
+                <i class="fa-solid fa-floppy-disk"></i> Save Promo Offer
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Promo Offers Table List -->
+        <div style="min-height: 180px; max-height: 280px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-dark);">
+          <table class="menu-manager-table">
+            <thead>
+              <tr>
+                <th>Active</th>
+                <th>Offer Title</th>
+                <th>Price (₹)</th>
+                <th>Description</th>
+                <th class="txt-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="promo-offers-tbody">
+              <!-- Dynamically populated by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: OWNER SECURITY PIN VERIFICATION ==================== -->
+  <div class="modal-overlay" id="owner-pin-modal" style="z-index: 350 !important;">
+    <div class="modal-card owner-pin-card" style="max-width: 380px; text-align: center;">
+      <button class="modal-close-btn" onclick="closeOwnerPinModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="pin-header-icon">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h2>Owner Security PIN</h2>
+      <p class="subtitle">Enter 4-digit PIN to access Counter POS & Sales Reports.<br><small style="color:var(--mcd-gold); font-weight:bold;">Default PIN: 1234</small></p>
+
+      <!-- PIN Display Dots -->
+      <div class="pin-display-dots" id="pin-dots-container">
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+      </div>
+      <div id="pin-error-msg" class="pin-error-msg hidden">Incorrect PIN. Please try again.</div>
+
+      <!-- Keypad Grid (0-9, Backspace, Clear) -->
+      <div class="pin-keypad-grid">
+        <button type="button" class="pin-key-btn" onclick="pressPinKey('1')">1</button>
+        <button type="button" class="pin-key-btn" onclick="pressPinKey('2')">2</button>
+        <button type="button" class="pin-key-btn" onclick="pressPinKey('3')">3</button>
+        <button type="button" class="pin-key-btn" onclick="pressPinKey('4')">4</button>
+        <button type="button" class="pin-key-btn" onclick="pressPinKey('5')">5</button>
+        <button type="button" class="pin-key-btn" onclick="pressPinKey('6')">6</button>
+        <button type="button" class="pin-key-btn" onclick="pressPinKey('7')">7</button>
+        <button type="button" class="pin-key-btn" onclick="pressPinKey('8')">8</button>
+        <button type="button" class="pin-key-btn" onclick="pressPinKey('9')">9</button>
+        <button type="button" class="pin-key-btn action-key" onclick="clearPin()">C</button>
+        <button type="button" class="pin-key-btn" onclick="pressPinKey('0')">0</button>
+        <button type="button" class="pin-key-btn action-key" onclick="backspacePin()"><i class="fa-solid fa-backspace"></i></button>
+      </div>
+
+      <div style="margin-top: 14px;">
+        <button type="button" class="done-finish-btn" onclick="verifyOwnerPin()" style="width: 100%; font-size: 0.95rem;">
+          <i class="fa-solid fa-lock-open"></i> Unlock Counter POS
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: CHANGE OWNER SECURITY PIN ==================== -->
+  <div class="modal-overlay" id="owner-change-pin-modal" style="z-index: 350 !important;">
+    <div class="modal-card owner-pin-card" style="max-width: 400px;">
+      <button class="modal-close-btn" onclick="closeChangePinModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="pin-header-icon">
+        <i class="fa-solid fa-key"></i>
+      </div>
+      <h2>Change Security PIN</h2>
+      <p class="subtitle">Set a new 4-digit Security PIN for Owner Access.</p>
+
+      <form onsubmit="saveNewOwnerPin(event)">
+        <div style="display:flex; flex-direction:column; gap:12px; margin-top:16px;">
+          <div>
+            <label style="font-size:0.75rem; color:var(--text-secondary); font-weight:700; display:block; margin-bottom:4px;">CURRENT PIN *</label>
+            <input type="password" id="input-current-pin" maxlength="4" placeholder="Enter current PIN (Default: 1234)" required style="background:var(--bg-dark); border:1px solid var(--border-color); color:#fff; padding:10px 14px; border-radius:var(--radius-sm); width:100%; font-size:1.1rem; letter-spacing:4px; text-align:center;">
+          </div>
+          <div>
+            <label style="font-size:0.75rem; color:var(--text-secondary); font-weight:700; display:block; margin-bottom:4px;">NEW 4-DIGIT PIN *</label>
+            <input type="password" id="input-new-pin" maxlength="4" placeholder="Enter new 4-digit PIN" required style="background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff; padding:10px 14px; border-radius:var(--radius-sm); width:100%; font-size:1.1rem; letter-spacing:4px; text-align:center;">
+          </div>
+          <div>
+            <label style="font-size:0.75rem; color:var(--text-secondary); font-weight:700; display:block; margin-bottom:4px;">CONFIRM NEW PIN *</label>
+            <input type="password" id="input-confirm-pin" maxlength="4" placeholder="Re-enter new 4-digit PIN" required style="background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff; padding:10px 14px; border-radius:var(--radius-sm); width:100%; font-size:1.1rem; letter-spacing:4px; text-align:center;">
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:18px;">
+          <button type="button" onclick="resetPinToDefault()" style="background:transparent; color:var(--text-secondary); border:none; font-size:0.78rem; text-decoration:underline; cursor:pointer;">Reset to 1234</button>
+          <div style="display:flex; gap:8px;">
+            <button type="button" onclick="closeChangePinModal()" style="background:var(--bg-dark); color:var(--text-secondary); border:1px solid var(--border-color); padding:8px 16px; border-radius:var(--radius-sm); font-weight:700; cursor:pointer;">Cancel</button>
+            <button type="submit" style="background:var(--mcd-gold); color:#121212; border:none; padding:8px 20px; border-radius:var(--radius-sm); font-family:var(--font-heading); font-weight:900; cursor:pointer;">
+              <i class="fa-solid fa-floppy-disk"></i> Save New PIN
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JS Logic with version query string to prevent browser caching -->
+  <script src="app.js?v=20261118_v10"></script>
+</body>
+</html>
